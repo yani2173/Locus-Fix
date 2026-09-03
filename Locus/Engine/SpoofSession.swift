@@ -1,3 +1,4 @@
+import ActivityKit
 import CoreLocation
 import Foundation
 import MapKit
@@ -79,6 +80,9 @@ final class SpoofSession: ObservableObject {
     @Published var isBusy = false
     @Published var joystickActive = false
     @Published var customSpeedKmh: Double?
+    @Published var realisticTraffic: Bool = UserDefaults.standard.bool(forKey: "realisticTraffic") {
+        didSet { UserDefaults.standard.set(realisticTraffic, forKey: "realisticTraffic") }
+    }
 
     @Published var favorites: [SavedPlace] = []
     @Published var recents: [SavedPlace] = []
@@ -88,6 +92,7 @@ final class SpoofSession: ObservableObject {
     private var joystickTimer: Timer?
     private var routeTask: Task<Void, Never>?
     private var backgroundTask = UIBackgroundTaskIdentifier.invalid
+    private var currentActivity: Activity<SpoofActivityAttributes>?
     private var joystickVector: CGVector = .zero
     private let locationKeeper = BackgroundKeepAlive()
 
@@ -128,6 +133,7 @@ final class SpoofSession: ObservableObject {
         stopJoystick()
         stopResend()
         stopHealth()
+        stopLiveActivity()
         isBusy = true
         let result = LocationEngine.clear()
         isBusy = false
@@ -136,8 +142,6 @@ final class SpoofSession: ObservableObject {
             simulated = nil
             status = .idle
             endBackground()
-            // Keep location updates running so the map puck / locate button
-            // can return to the real GPS fix (not the leftover pin).
             locationKeeper.start()
         case .failure(let error):
             lastError = error.localizedDescription
@@ -208,6 +212,13 @@ final class SpoofSession: ObservableObject {
                 speed = max(0.8, speed)
                 let stepMeters: CLLocationDistance = min(12, max(4, speed * 0.5))
                 let steps = max(1, Int(ceil(distance / stepMeters)))
+                
+                let wantsTraffic = await MainActor.run { self.realisticTraffic }
+                if wantsTraffic && Double.random(in: 0...1) < 0.15 {
+                    let pauseTime = Double.random(in: 8.0...22.0)
+                    try? await Task.sleep(nanoseconds: UInt64(pauseTime * 1_000_000_000))
+                }
+
                 for i in 1...steps {
                     if Task.isCancelled { break }
                     let t = Double(i) / Double(steps)
@@ -321,6 +332,11 @@ final class SpoofSession: ObservableObject {
             if markRecent {
                 pushRecent(coordinate)
             }
+            if currentActivity == nil {
+                startLiveActivity()
+            } else {
+                updateLiveActivity()
+            }
         case .failure(let error):
             lastError = error.localizedDescription
             if simulated != nil {
@@ -328,6 +344,7 @@ final class SpoofSession: ObservableObject {
                 postDropNotification(error.localizedDescription)
             } else {
                 status = .idle
+                stopLiveActivity()
             }
         }
     }
@@ -456,5 +473,46 @@ final class SpoofSession: ObservableObject {
         let dLat = northMeters / earth * (180 / .pi)
         let dLon = eastMeters / (earth * cos(coordinate.latitude * .pi / 180)) * (180 / .pi)
         return CLLocationCoordinate2D(latitude: coordinate.latitude + dLat, longitude: coordinate.longitude + dLon)
+    }
+
+    private func startLiveActivity() {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let attributes = SpoofActivityAttributes()
+        let state = SpoofActivityAttributes.ContentState(speed: effectiveSpeed, statusText: "Spoofing Active", isRouting: routeTask != nil)
+        
+        do {
+            if #available(iOS 16.2, *) {
+                let content = ActivityContent(state: state, staleDate: nil)
+                currentActivity = try Activity.request(attributes: attributes, content: content)
+            } else {
+                currentActivity = try Activity.request(attributes: attributes, contentState: state)
+            }
+        } catch {
+            print("Failed to start Live Activity: \(error)")
+        }
+    }
+    
+    private func updateLiveActivity() {
+        guard let activity = currentActivity else { return }
+        let state = SpoofActivityAttributes.ContentState(speed: effectiveSpeed, statusText: "Spoofing Active", isRouting: routeTask != nil)
+        Task {
+            if #available(iOS 16.2, *) {
+                await activity.update(ActivityContent(state: state, staleDate: nil))
+            } else {
+                await activity.update(using: state)
+            }
+        }
+    }
+    
+    private func stopLiveActivity() {
+        guard let activity = currentActivity else { return }
+        Task {
+            if #available(iOS 16.2, *) {
+                await activity.end(ActivityContent(state: activity.content.state, staleDate: nil), dismissalPolicy: .immediate)
+            } else {
+                await activity.end(using: activity.contentState, dismissalPolicy: .immediate)
+            }
+            currentActivity = nil
+        }
     }
 }
