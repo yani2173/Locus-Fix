@@ -14,6 +14,8 @@ struct RoutePlannerSheet: View {
     @EnvironmentObject private var session: SpoofSession
     @Environment(\.dismiss) private var dismiss
 
+    @State private var speedText = ""
+
     var body: some View {
         NavigationStack {
             List {
@@ -60,6 +62,39 @@ struct RoutePlannerSheet: View {
                 }
 
                 Section {
+                    HStack {
+                        TextField("Custom km/h", text: $speedText)
+                            .keyboardType(.decimalPad)
+                            .onSubmit { applySpeed() }
+                        if session.customSpeedKmh != nil {
+                            Button {
+                                session.customSpeedKmh = nil
+                                speedText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    Button("Set speed") { applySpeed() }
+                        .disabled(speedText.isEmpty)
+                    LabeledContent("Active") {
+                        if let kmh = session.customSpeedKmh {
+                            Text(String(format: "%.1f km/h", kmh))
+                        } else {
+                            Text("\(session.travelMode.title) default")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                } header: {
+                    Text("Speed")
+                } footer: {
+                    Text("Max \(Int(SpoofSession.maxSpeedKmh)) km/h. Leave empty to use travel mode default.")
+                }
+
+                Section {
                     Text("Routes follow Apple Maps roads/footpaths for the selected travel mode. Speed gets light random variation so motion looks less robotic.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -71,11 +106,28 @@ struct RoutePlannerSheet: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .onAppear {
+                if let kmh = session.customSpeedKmh {
+                    speedText = String(format: "%.1f", kmh)
+                }
+            }
         }
     }
 
     private func coordText(_ c: CLLocationCoordinate2D?) -> String {
         guard let c else { return "—" }
         return String(format: "%.5f, %.5f", c.latitude, c.longitude)
+    }
+
+    private func applySpeed() {
+        guard let value = Double(speedText.replacingOccurrences(of: ",", with: ".")),
+              value > 0 else {
+            session.customSpeedKmh = nil
+            speedText = ""
+            return
+        }
+        let clamped = min(value, SpoofSession.maxSpeedKmh)
+        session.customSpeedKmh = clamped
+        speedText = String(format: "%.1f", clamped)
     }
 }

@@ -1,5 +1,6 @@
 import MapKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MapHomeView: View {
     @EnvironmentObject private var session: SpoofSession
@@ -126,7 +127,7 @@ struct MapHomeView: View {
             guard let url = note.object as? URL else { return }
             importGPX(url)
         }
-        .fileImporter(isPresented: $showGPXImporter, allowedContentTypes: [.xml, .data], allowsMultipleSelection: false) { result in
+        .fileImporter(isPresented: $showGPXImporter, allowedContentTypes: [.gpx, .xml], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
                 importGPX(url)
             }
@@ -423,6 +424,10 @@ struct MapHomeView: View {
 
 private extension UIWindowScene {
     var keyWindow: UIWindow? { windows.first { $0.isKeyWindow } }
+}
+
+extension UTType {
+    static let gpx = UTType("com.topografix.gpx") ?? .xml
 }
 
 @MainActor

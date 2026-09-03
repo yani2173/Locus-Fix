@@ -52,36 +52,22 @@ enum GPXCodec {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         let data = try Data(contentsOf: url)
-        let text = String(decoding: data, as: UTF8.self)
-        var coords: [CLLocationCoordinate2D] = []
-        let pattern = #"lat="([^"]+)"[^>]*lon="([^"]+)""#
-        let regex = try NSRegularExpression(pattern: pattern)
-        let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        regex.enumerateMatches(in: text, range: range) { match, _, _ in
-            guard let match,
-                  let latR = Range(match.range(at: 1), in: text),
-                  let lonR = Range(match.range(at: 2), in: text),
-                  let lat = Double(text[latR]),
-                  let lon = Double(text[lonR]) else { return }
-            coords.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
+        let delegate = GPXParserDelegate()
+        let parser = XMLParser(data: data)
+        parser.shouldProcessNamespaces = true
+        parser.delegate = delegate
+        let success = parser.parse()
+        if let error = delegate.fatalError {
+            throw error
         }
-        // Also support lon before lat
-        if coords.isEmpty {
-            let alt = #"lon="([^"]+)"[^>]*lat="([^"]+)""#
-            let altRegex = try NSRegularExpression(pattern: alt)
-            altRegex.enumerateMatches(in: text, range: range) { match, _, _ in
-                guard let match,
-                      let lonR = Range(match.range(at: 1), in: text),
-                      let latR = Range(match.range(at: 2), in: text),
-                      let lon = Double(text[lonR]),
-                      let lat = Double(text[latR]) else { return }
-                coords.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
-            }
+        if !success, let parserError = parser.parserError {
+            throw NSError(domain: "Locus", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "GPX file is malformed: \(parserError.localizedDescription)"])
         }
-        guard !coords.isEmpty else {
+        guard !delegate.coords.isEmpty else {
             throw NSError(domain: "Locus", code: 2, userInfo: [NSLocalizedDescriptionKey: "No track points found in GPX"])
         }
-        return coords
+        return delegate.coords
     }
 
     static func export(_ coordinates: [CLLocationCoordinate2D], name: String = "Locus Route") -> String {
@@ -102,5 +88,26 @@ enum GPXCodec {
         </gpx>
         """
         return body
+    }
+}
+
+private final class GPXParserDelegate: NSObject, XMLParserDelegate {
+    var coords: [CLLocationCoordinate2D] = []
+    var fatalError: Error?
+
+    private let pointElements: Set<String> = ["trkpt", "rtept"]
+
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?,
+                qualifiedName: String?, attributes: [String: String]) {
+        guard pointElements.contains(elementName),
+              let latStr = attributes["lat"], let lat = Double(latStr),
+              let lonStr = attributes["lon"], let lon = Double(lonStr),
+              CLLocationCoordinate2DIsValid(CLLocationCoordinate2D(latitude: lat, longitude: lon)) else { return }
+        coords.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
+    }
+
+    func parser(_ parser: XMLParser, parseErrorOccurred parseError: Error) {
+        fatalError = NSError(domain: "Locus", code: 2,
+                            userInfo: [NSLocalizedDescriptionKey: "GPX file is malformed: \(parseError.localizedDescription)"])
     }
 }
