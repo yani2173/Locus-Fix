@@ -189,7 +189,7 @@ struct BottomControlsView: View {
                                 .font(.system(size: 10, weight: .medium))
                         }
                         .foregroundStyle(selected ? .black : .primary)
-                        .frame(width: 52, height: 48)
+                        .frame(maxWidth: .infinity, minHeight: 48)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .fill(selected ? LocusTheme.accent : Color.primary.opacity(0.08))
@@ -198,7 +198,6 @@ struct BottomControlsView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                Spacer(minLength: 0)
             }
 
             HStack(spacing: 6) {
@@ -260,36 +259,34 @@ struct BottomControlsView: View {
                     Button {
                         session.stop(pairing: pairing)
                     } label: {
-                        Text("Stop")
-                            .font(.subheadline.weight(.bold))
+                        Image(systemName: "stop.fill")
+                            .font(.body.weight(.bold))
                             .foregroundStyle(.white)
-                            .frame(minWidth: 72)
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 8)
-                            .background(Capsule().fill(LocusTheme.danger))
-                            .contentShape(Capsule())
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(LocusTheme.danger))
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
-                } else {
-                    Button {
-                        guard let pin = session.pin else {
-                            session.lastError = "Tap the map to drop a pin first."
-                            return
-                        }
-                        session.teleport(to: pin, pairing: pairing)
-                    } label: {
-                        Text("Teleport")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.black)
-                            .frame(minWidth: 96)
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 10)
-                            .background(Capsule().fill(LocusTheme.accent))
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(session.isBusy)
                 }
+
+                Button {
+                    guard let pin = session.pin else {
+                        session.lastError = "Tap the map to drop a pin first."
+                        return
+                    }
+                    session.teleport(to: pin, pairing: pairing)
+                } label: {
+                    Text("Teleport")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.black)
+                        .frame(minWidth: session.isSpoofing ? 72 : 96)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 10)
+                        .background(Capsule().fill(LocusTheme.accent))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(session.isBusy)
             }
         }
         .padding(14)

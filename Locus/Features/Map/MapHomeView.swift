@@ -127,7 +127,7 @@ struct MapHomeView: View {
             guard let url = note.object as? URL else { return }
             importGPX(url)
         }
-        .fileImporter(isPresented: $showGPXImporter, allowedContentTypes: [.gpx, .xml], allowsMultipleSelection: false) { result in
+        .fileImporter(isPresented: $showGPXImporter, allowedContentTypes: [.gpx, .xml, .text, .data], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
                 importGPX(url)
             }
@@ -437,7 +437,9 @@ private extension UIWindowScene {
 }
 
 extension UTType {
-    static let gpx = UTType("com.topografix.gpx") ?? .xml
+    static var gpx: UTType {
+        UTType(importedAs: "com.topografix.gpx")
+    }
 }
 
 @MainActor
