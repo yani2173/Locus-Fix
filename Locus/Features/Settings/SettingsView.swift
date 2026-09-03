@@ -96,11 +96,9 @@ struct SettingsView: View {
                     Text("Connect LocalDevVPN before teleporting. Default tunnel IP is 10.7.0.1. Start a spoof on Wi‑Fi first; it can keep working on cellular afterward.")
                 }
 
-                Section("Spoofing Behavior") {
+                Section(header: Text("Spoofing Behavior"), footer: Text("When moving along a route, occasionally pause at intersections for a few seconds to simulate real-world traffic. Helps bypass anti-bot detections.")) {
                     Toggle("Realistic Traffic (Smart Speed)", isOn: $session.realisticTraffic)
-                        .tint(LocusTheme.primary)
-                } footer: {
-                    Text("When moving along a route, occasionally pause at intersections for a few seconds to simulate real-world traffic. Helps bypass anti-bot detections.")
+                        .tint(LocusTheme.accent)
                 }
 
                 Section("Privacy") {
