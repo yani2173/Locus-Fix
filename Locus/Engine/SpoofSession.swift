@@ -350,7 +350,7 @@ final class SpoofSession: ObservableObject {
         resendTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, let sim = self.simulated else { return }
-                let jitter = 0.000009
+                let jitter = 0.000045
                 _ = LocationEngine.set(
                     latitude: sim.latitude + Double.random(in: -jitter...jitter),
                     longitude: sim.longitude + Double.random(in: -jitter...jitter),
