@@ -54,10 +54,15 @@ enum GPXCodec {
         let data = try Data(contentsOf: url)
         let delegate = GPXParserDelegate()
         let parser = XMLParser(data: data)
+        parser.shouldProcessNamespaces = true
         parser.delegate = delegate
-        parser.parse()
+        let success = parser.parse()
         if let error = delegate.fatalError {
             throw error
+        }
+        if !success, let parserError = parser.parserError {
+            throw NSError(domain: "Locus", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "GPX file is malformed: \(parserError.localizedDescription)"])
         }
         guard !delegate.coords.isEmpty else {
             throw NSError(domain: "Locus", code: 2, userInfo: [NSLocalizedDescriptionKey: "No track points found in GPX"])
