@@ -13,8 +13,8 @@ enum TravelMode: String, CaseIterable, Identifiable {
         switch self {
         case .walk: return "Walk"
         case .run: return "Run"
-        case .cycle: return "Cycle"
-        case .drive: return "Drive"
+        case .cycle: return "Bike"
+        case .drive: return "Car"
         }
     }
 
@@ -193,7 +193,6 @@ final class SpoofSession: ObservableObject {
         guard pairing.hasPairingFile, coordinates.count >= 2 else { return }
         routeTask?.cancel()
         stopJoystick()
-        let baseSpeed = effectiveSpeed
         routeTask = Task { [weak self] in
             guard let self else { return }
             var previous = coordinates[0]
@@ -204,7 +203,8 @@ final class SpoofSession: ObservableObject {
                 if Task.isCancelled { break }
                 let distance = CLLocation(latitude: previous.latitude, longitude: previous.longitude)
                     .distance(from: CLLocation(latitude: next.latitude, longitude: next.longitude))
-                var speed = baseSpeed * Double.random(in: 0.88...1.12)
+                let currentSpeed = await MainActor.run { self.effectiveSpeed }
+                var speed = currentSpeed * Double.random(in: 0.88...1.12)
                 speed = max(0.8, speed)
                 let stepMeters: CLLocationDistance = min(12, max(4, speed * 0.5))
                 let steps = max(1, Int(ceil(distance / stepMeters)))
@@ -350,9 +350,10 @@ final class SpoofSession: ObservableObject {
         resendTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, let sim = self.simulated else { return }
+                let jitter = 0.000009
                 _ = LocationEngine.set(
-                    latitude: sim.latitude,
-                    longitude: sim.longitude,
+                    latitude: sim.latitude + Double.random(in: -jitter...jitter),
+                    longitude: sim.longitude + Double.random(in: -jitter...jitter),
                     pairingPath: pairing.pairingPath,
                     deviceIP: TunnelConfig.targetIP
                 )

@@ -8,15 +8,25 @@ struct RootView: View {
     @State private var showPlaces = false
 
     var body: some View {
-        // Bottom chrome is a sibling overlay aligned to the bottom — no full-screen
-        // Spacer layer that can steal / pass map taps through the tray.
         ZStack(alignment: .bottom) {
             MapHomeView()
 
-            BottomControlsView(
-                showSettings: $showSettings,
-                showPlaces: $showPlaces
-            )
+            VStack(spacing: 12) {
+                if session.joystickActive {
+                    JoystickPad { vector in
+                        session.updateJoystick(vector: vector)
+                    }
+                    .frame(width: 120, height: 120)
+                    .padding(14)
+                    .locusGlass(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+
+                BottomControlsView(
+                    showSettings: $showSettings,
+                    showPlaces: $showPlaces
+                )
+            }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
         }
@@ -107,7 +117,6 @@ struct StatusBarView: View {
             refreshTunnel()
         }
         .onReceive(NotificationCenter.default.publisher(for: .NEVPNStatusDidChange)) { _ in
-            // LocalDevVPN connection changes show up here even though we don’t own the VPN.
             refreshTunnel()
         }
         .task(id: scenePhase) {
@@ -161,37 +170,64 @@ struct BottomControlsView: View {
     @Binding var showSettings: Bool
     @Binding var showPlaces: Bool
 
+    @State private var speedText = ""
+
     private let trayShape = RoundedRectangle(cornerRadius: 28, style: .continuous)
 
     var body: some View {
         VStack(spacing: 12) {
-            if session.joystickActive {
-                JoystickPad { vector in
-                    session.updateJoystick(vector: vector)
-                }
-                .frame(width: 148, height: 148)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(TravelMode.allCases) { mode in
                     let selected = session.travelMode == mode
                     Button {
                         session.travelMode = mode
                     } label: {
-                        Image(systemName: mode.icon)
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(selected ? .black : .primary)
-                            .frame(width: 44, height: 40)
-                            .background(
-                                Capsule().fill(selected ? LocusTheme.accent : Color.primary.opacity(0.08))
-                            )
-                            .contentShape(Capsule())
+                        VStack(spacing: 2) {
+                            Image(systemName: mode.icon)
+                                .font(.body.weight(.semibold))
+                            Text(mode.title)
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundStyle(selected ? .black : .primary)
+                        .frame(width: 52, height: 48)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(selected ? LocusTheme.accent : Color.primary.opacity(0.08))
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
                 Spacer(minLength: 0)
             }
+
+            HStack(spacing: 6) {
+                Image(systemName: "gauge.with.needle.fill")
+                    .foregroundStyle(.secondary)
+                TextField("Auto", text: $speedText)
+                    .keyboardType(.decimalPad)
+                    .frame(width: 52)
+                    .multilineTextAlignment(.trailing)
+                    .onSubmit { applySpeed() }
+                Text("km/h")
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                if !speedText.isEmpty {
+                    Button("Set") { applySpeed() }
+                        .foregroundStyle(LocusTheme.accent)
+                }
+                if session.customSpeedKmh != nil {
+                    Button {
+                        session.customSpeedKmh = nil
+                        speedText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .font(.caption)
 
             HStack(spacing: 10) {
                 trayIcon("gearshape.fill") { showSettings = true }
@@ -258,8 +294,12 @@ struct BottomControlsView: View {
         }
         .padding(14)
         .locusGlass(.regular, in: trayShape)
-        // Whole tray absorbs taps so near-misses don't fall through to the map.
         .contentShape(trayShape)
+        .onAppear {
+            if let kmh = session.customSpeedKmh {
+                speedText = String(format: "%.1f", kmh)
+            }
+        }
     }
 
     private func trayIcon(_ systemName: String, action: @escaping () -> Void) -> some View {
@@ -272,6 +312,18 @@ struct BottomControlsView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+    }
+
+    private func applySpeed() {
+        guard let value = Double(speedText.replacingOccurrences(of: ",", with: ".")),
+              value > 0 else {
+            session.customSpeedKmh = nil
+            speedText = ""
+            return
+        }
+        let clamped = min(value, SpoofSession.maxSpeedKmh)
+        session.customSpeedKmh = clamped
+        speedText = String(format: "%.1f", clamped)
     }
 }
 
