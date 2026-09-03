@@ -139,8 +139,18 @@ struct MapHomeView: View {
                 isRouting: $isRouting,
                 onBuild: buildRoadRoute,
                 onPlay: playRoute,
-                onImportGPX: { showGPXImporter = true },
-                onExportGPX: exportGPX,
+                onImportGPX: {
+                    showRouteSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        showGPXImporter = true
+                    }
+                },
+                onExportGPX: {
+                    showRouteSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        exportGPX()
+                    }
+                },
                 onUseDrawn: {
                     routeCoords = RouteBuilder.sample(coordinates: drawnPath, every: 10)
                     drawnPath.removeAll()
