@@ -80,7 +80,7 @@
 			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>com.topografixix.gpx</string>
+				<string>com.topografix.gpx</string>
 				<string>public.xml</string>
 			</array>
 		</dict>
@@ -103,6 +103,23 @@
 					<string>plist</string>
 					<string>mobiledevicepairing</string>
 					<string>mobiledevicepair</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.xml</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>GPS Exchange Format</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.topografix.gpx</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>gpx</string>
 				</array>
 			</dict>
 		</dict>

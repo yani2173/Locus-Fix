@@ -78,6 +78,7 @@ final class SpoofSession: ObservableObject {
     @Published var lastError: String?
     @Published var isBusy = false
     @Published var joystickActive = false
+    @Published var customSpeedKmh: Double?
 
     @Published var favorites: [SavedPlace] = []
     @Published var recents: [SavedPlace] = []
@@ -102,6 +103,14 @@ final class SpoofSession: ObservableObject {
         if case .active = status { return true }
         if case .reconnecting = status { return true }
         return false
+    }
+
+    static let maxSpeedKmh: Double = 200
+
+    var effectiveSpeed: CLLocationSpeed {
+        guard let kmh = customSpeedKmh else { return travelMode.baseSpeed }
+        let clamped = min(max(kmh, 0.1), Self.maxSpeedKmh)
+        return clamped / 3.6
     }
 
     func teleport(to coordinate: CLLocationCoordinate2D, pairing: PairingStore) {
@@ -184,7 +193,7 @@ final class SpoofSession: ObservableObject {
         guard pairing.hasPairingFile, coordinates.count >= 2 else { return }
         routeTask?.cancel()
         stopJoystick()
-        let mode = travelMode
+        let baseSpeed = effectiveSpeed
         routeTask = Task { [weak self] in
             guard let self else { return }
             var previous = coordinates[0]
@@ -195,7 +204,7 @@ final class SpoofSession: ObservableObject {
                 if Task.isCancelled { break }
                 let distance = CLLocation(latitude: previous.latitude, longitude: previous.longitude)
                     .distance(from: CLLocation(latitude: next.latitude, longitude: next.longitude))
-                var speed = mode.baseSpeed * Double.random(in: 0.88...1.12)
+                var speed = baseSpeed * Double.random(in: 0.88...1.12)
                 speed = max(0.8, speed)
                 let stepMeters: CLLocationDistance = min(12, max(4, speed * 0.5))
                 let steps = max(1, Int(ceil(distance / stepMeters)))
@@ -329,7 +338,7 @@ final class SpoofSession: ObservableObject {
         guard magnitude > 0.08 else { return }
         let nx = joystickVector.dx / magnitude
         let ny = -joystickVector.dy / magnitude
-        let speed = travelMode.baseSpeed * min(1.0, magnitude) * Double.random(in: 0.9...1.1)
+        let speed = effectiveSpeed * min(1.0, magnitude) * Double.random(in: 0.9...1.1)
         let dt = 0.25
         let meters = speed * dt
         let next = offset(coordinate: current, eastMeters: nx * meters, northMeters: ny * meters)
