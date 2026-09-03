@@ -347,7 +347,6 @@ final class SpoofSession: ObservableObject {
 
     private func startResend(pairing: PairingStore) {
         resendTimer?.invalidate()
-        // Random walk state
         var driftAngle = Double.random(in: 0...(2 * .pi))
         
         func scheduleNext() {
@@ -356,10 +355,8 @@ final class SpoofSession: ObservableObject {
                 Task { @MainActor in
                     guard let self, let sim = self.simulated else { return }
                     
-                    // Smoothly change the drift angle by up to ±30 degrees
                     driftAngle += Double.random(in: -0.5...0.5)
                     
-                    // Move about 0.5 to 1.5 meters in the drift direction
                     let distanceMeters = Double.random(in: 0.5...1.5)
                     let earthRadius = 6378137.0
                     let dLat = (distanceMeters * cos(driftAngle)) / earthRadius * (180 / .pi)
@@ -368,8 +365,6 @@ final class SpoofSession: ObservableObject {
                     let newLat = sim.latitude + dLat
                     let newLon = sim.longitude + dLon
                     
-                    // We don't update self.simulated so the user's pin doesn't wander off visibly,
-                    // we just send the micro-deviated coordinate to locationd.
                     _ = LocationEngine.set(
                         latitude: newLat,
                         longitude: newLon,
@@ -377,7 +372,7 @@ final class SpoofSession: ObservableObject {
                         deviceIP: TunnelConfig.targetIP
                     )
                     
-                    scheduleNext() // recurse
+                    scheduleNext()
                 }
             }
         }
