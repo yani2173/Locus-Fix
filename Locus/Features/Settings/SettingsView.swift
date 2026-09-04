@@ -110,6 +110,14 @@ struct SettingsView: View {
                 Section("About") {
                     LabeledContent("Version", value: appVersion)
                     LabeledContent("Engine", value: "idevice DVT location simulation")
+                    
+                    HStack {
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(LocusTheme.accent)
+                        Text("App modificated by Yani")
+                            .fontWeight(.medium)
+                    }
+                    
                     Text("Locus is free and open source (MIT). Location injection uses the MIT-licensed idevice FFI.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
