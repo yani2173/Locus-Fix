@@ -68,6 +68,8 @@ targets:
     platform: iOS
     sources:
       - path: LocusWidget
+        excludes:
+          - "Info.plist"
       - path: Locus/Shared/SpoofActivityAttributes.swift
     settings:
       base:
@@ -75,6 +77,6 @@ targets:
         PRODUCT_NAME: LocusWidget
         MARKETING_VERSION: "1.0.2"
         CURRENT_PROJECT_VERSION: "3"
-        GENERATE_INFOPLIST_FILE: true
-        INFOPLIST_KEY_NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: LocusWidget/Info.plist
         DEVELOPMENT_TEAM: ""
